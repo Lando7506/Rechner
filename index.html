@@ -1,0 +1,1197 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#16181b">
+<title>Graph-Rechner Trainer</title>
+<style>
+  :root{
+    --case:#d9dbd7;
+    --case-hi:#f2f3f1;
+    --case-lo:#aeb1ac;
+    --case-edge:#8b8e89;
+    --lcd-bg:#c7d1bd;
+    --lcd-bg-2:#bcc7b1;
+    --lcd-ink:#1f2a1a;
+    --lcd-ink-dim:rgba(31,42,26,0.45);
+    --bezel:#1b1d1f;
+    --key-dark:#3c4147;
+    --key-dark-lo:#202327;
+    --key-light:#eceeec;
+    --key-light-lo:#a7aaa6;
+    --key-fn:#5c6470;
+    --key-fn-lo:#33383e;
+    --key-text-light:#eef0ee;
+    --key-text-dark:#22252a;
+    --accent:#3f6fb0;
+    --accent-lo:#25406b;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:radial-gradient(ellipse at 50% -10%, #33383e 0%, #17191b 60%);
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:flex-start;
+    padding:28px 10px 60px;
+    font-family:"Helvetica Neue", Arial, sans-serif;
+    user-select:none;
+  }
+  #stage{
+    width:380px;
+    transform-origin: top center;
+  }
+  .hint-below{
+    text-align:center;
+    color:#6b7178;
+    font-size:11px;
+    margin-top:14px;
+    letter-spacing:0.02em;
+    line-height:1.7;
+    max-width:420px;
+  }
+  .hint-below kbd{
+    background:#2a2d31; border:1px solid #454a50; border-radius:3px; padding:1px 5px; color:#c9cdd1; font-family:monospace;
+  }
+
+  .calc{
+    background:linear-gradient(155deg,var(--case-hi),var(--case) 45%,var(--case-lo));
+    border-radius:20px;
+    padding:14px 14px 18px;
+    box-shadow:0 24px 50px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.6), inset 0 -2px 4px rgba(0,0,0,0.08);
+    border:1px solid var(--case-edge);
+  }
+  .calc-top{
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+    padding:0 6px 10px;
+  }
+  .calc-brand{
+    font-weight:800;
+    font-size:14px;
+    letter-spacing:0.05em;
+    color:#454b51;
+  }
+  .calc-brand span{ color:var(--accent); }
+  .calc-model{
+    font-size:9px;
+    letter-spacing:0.1em;
+    color:#82888e;
+    text-transform:uppercase;
+  }
+
+  .screen-bezel{
+    background:var(--bezel);
+    border-radius:9px;
+    padding:10px 10px 6px;
+    box-shadow:inset 0 3px 8px rgba(0,0,0,0.7), inset 0 0 0 1px #000;
+  }
+  .lcd{
+    background:linear-gradient(175deg,var(--lcd-bg),var(--lcd-bg-2));
+    color:var(--lcd-ink);
+    font-family:"SFMono-Regular", Consolas, "Courier New", monospace;
+    font-size:12.5px;
+    line-height:1.45;
+    padding:8px 9px;
+    height:196px;
+    border-radius:2px;
+    position:relative;
+    overflow:hidden;
+    box-shadow:inset 0 0 0 1px rgba(0,0,0,0.15);
+  }
+  .lcd::after{
+    content:"";
+    position:absolute; inset:0;
+    background:repeating-linear-gradient(rgba(0,0,0,0.05) 0px, rgba(0,0,0,0.05) 1px, transparent 1px, transparent 2px);
+    pointer-events:none;
+    mix-blend-mode:multiply;
+    opacity:0.35;
+  }
+  .lcd-line{ white-space:pre; }
+  .lcd-line.dim{ color:var(--lcd-ink-dim); }
+  .lcd-inputline{ white-space:pre-wrap; word-break:break-all; margin-bottom:2px; }
+  .lcd-hint{ color:var(--lcd-ink-dim); font-size:10.5px; margin-top:6px; }
+  .lcd-error{ color:var(--lcd-ink); font-weight:700; margin-top:8px; white-space:pre-wrap; }
+  .caret{
+    display:inline-block; width:6px; height:12px; background:var(--lcd-ink);
+    vertical-align:-1px; animation:blink 1s steps(1) infinite;
+  }
+  @keyframes blink{ 50%{ opacity:0; } }
+  .lcd-scrollhint{
+    position:absolute; right:6px; bottom:4px; font-size:10px; color:var(--lcd-ink-dim); font-weight:700;
+  }
+  .lcd-menu{ display:flex; flex-direction:column; justify-content:center; height:100%; }
+  .lcd-title{ font-weight:800; font-size:15px; letter-spacing:0.04em; line-height:1.3; margin-bottom:10px; text-align:center; }
+  .lcd-sub{ font-size:12px; line-height:2; }
+  #lcdCanvas{ width:100%; height:158px; display:block; }
+  .lcd-graph-overlay{
+    position:absolute; left:0; right:0; bottom:0;
+    background:rgba(199,209,189,0.9);
+    font-size:11px; padding:2px 8px; white-space:pre;
+    border-top:1px solid rgba(31,42,26,0.25);
+  }
+
+  .softkeys{
+    display:grid;
+    grid-template-columns:repeat(6,1fr);
+    gap:4px;
+    padding:6px 2px 12px;
+  }
+  .softkey{
+    background:#2c2f33;
+    color:#8a9096;
+    font-size:8.5px;
+    font-weight:700;
+    letter-spacing:0.02em;
+    text-align:center;
+    padding:5px 0;
+    border-radius:3px;
+    border:1px solid #101214;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,0.05);
+    min-height:13px;
+  }
+  .softkey.empty{ opacity:0.35; }
+
+  .navrow{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:2px 4px 12px;
+  }
+  .modecluster{ display:flex; flex-direction:column; gap:5px; }
+  .modebtn{
+    background:var(--key-fn);
+    color:var(--key-text-light);
+    border:none;
+    border-radius:5px;
+    font-size:8.5px;
+    font-weight:700;
+    letter-spacing:0.03em;
+    padding:5px 8px;
+    box-shadow:0 2px 0 var(--key-fn-lo);
+    cursor:pointer;
+  }
+  .modebtn:active{ transform:translateY(1px); box-shadow:none; }
+
+  .dpad{ position:relative; width:78px; height:78px; flex-shrink:0; }
+  .dpad button{
+    position:absolute;
+    background:var(--key-dark);
+    color:var(--key-text-light);
+    border:none;
+    font-size:11px;
+    box-shadow:0 2px 0 var(--key-dark-lo);
+    cursor:pointer;
+  }
+  .dpad button:active{ transform:translateY(1px); box-shadow:none; }
+  .dpad .up{ top:0; left:26px; width:26px; height:24px; border-radius:6px 6px 2px 2px; }
+  .dpad .down{ bottom:0; left:26px; width:26px; height:24px; border-radius:2px 2px 6px 6px; }
+  .dpad .left{ top:27px; left:0; width:24px; height:24px; border-radius:6px 2px 2px 6px; }
+  .dpad .right{ top:27px; right:0; width:24px; height:24px; border-radius:2px 6px 6px 2px; }
+  .dpad .center{ top:26px; left:25px; width:28px; height:26px; border-radius:4px; background:var(--accent); box-shadow:0 2px 0 var(--accent-lo); font-size:8px; font-weight:700; }
+
+  .exitac{ display:flex; gap:6px; }
+  .exitac button{
+    background:var(--key-fn); color:var(--key-text-light); border:none; border-radius:5px;
+    font-size:9px; font-weight:700; padding:6px 9px; box-shadow:0 2px 0 var(--key-fn-lo); cursor:pointer;
+  }
+  .exitac button:active{ transform:translateY(1px); box-shadow:none; }
+
+  .keys{
+    display:grid;
+    grid-template-columns:repeat(5,1fr);
+    gap:6px;
+  }
+  .key{
+    border:none;
+    border-radius:7px;
+    padding:11px 0;
+    font-size:12.5px;
+    font-weight:600;
+    cursor:pointer;
+    background:var(--key-dark);
+    color:var(--key-text-light);
+    box-shadow:0 3px 0 var(--key-dark-lo), inset 0 1px 0 rgba(255,255,255,0.08);
+  }
+  .key:active{ transform:translateY(2px); box-shadow:inset 0 1px 0 rgba(255,255,255,0.08); }
+  .key.light{
+    background:var(--key-light); color:var(--key-text-dark);
+    box-shadow:0 3px 0 var(--key-light-lo), inset 0 1px 0 rgba(255,255,255,0.7);
+  }
+  .key.light:active{ box-shadow:inset 0 1px 0 rgba(255,255,255,0.7); }
+  .key.accent{
+    background:var(--accent); color:#fff;
+    box-shadow:0 3px 0 var(--accent-lo);
+  }
+  .key.accent:active{ box-shadow:inset 0 1px 0 rgba(255,255,255,0.2); }
+  .key.small{ font-size:10px; }
+
+  @media (max-width:420px){
+    body{ padding-top:14px; }
+  }
+
+  #deviceGate{
+    position:fixed; inset:0; z-index:1000;
+    background:radial-gradient(ellipse at 50% -10%, #33383e 0%, #17191b 60%);
+    color:#eef0ee;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    text-align:center; padding:32px;
+  }
+  #deviceGate.hidden{ display:none; }
+  #deviceGate .icon{ font-size:40px; margin-bottom:18px; opacity:0.85; }
+  #deviceGate h1{ font-size:19px; margin:0 0 12px; letter-spacing:0.02em; }
+  #deviceGate p{ font-size:14px; color:#aab0b6; max-width:360px; line-height:1.65; margin:0 0 22px; }
+  #deviceGate button{
+    background:transparent; border:1px solid #454a50; color:#8a9096;
+    font-size:11.5px; padding:9px 16px; border-radius:6px; cursor:pointer; letter-spacing:0.02em;
+  }
+  #deviceGate button:active{ background:#2a2d31; }
+</style>
+</head>
+<body>
+
+<div id="deviceGate" class="hidden">
+  <div class="icon">▭</div>
+  <h1>Nur auf Tablet oder Handy</h1>
+  <p>Dieser Graph-Trainer ist auf Touch-Bedienung mit den Fingern ausgelegt (Tastenfeld, D-Pad, Softkeys). Am PC/Laptop mit Maus &amp; Tastatur fehlt die Touch-Bedienung dafür.</p>
+  <button id="gateBypass">Trotzdem hier öffnen</button>
+</div>
+
+<div id="stage">
+  <div class="calc">
+    <div class="calc-top">
+      <div class="calc-brand">graph<span>·fx</span></div>
+      <div class="calc-model">Graph-Trainer</div>
+    </div>
+
+    <div class="screen-bezel">
+      <div class="lcd" id="lcd"></div>
+    </div>
+
+    <div class="softkeys" id="softkeys"></div>
+
+    <div class="navrow">
+      <div class="modecluster">
+        <button class="modebtn" id="btnShift">SHIFT</button>
+        <button class="modebtn" id="btnAlpha">ALPHA</button>
+      </div>
+      <div class="dpad">
+        <button class="up" data-dir="up">▲</button>
+        <button class="down" data-dir="down">▼</button>
+        <button class="left" data-dir="left">◀</button>
+        <button class="right" data-dir="right">▶</button>
+        <button class="center" id="btnMenu">MENU</button>
+      </div>
+      <div class="exitac">
+        <button id="btnExit">EXIT</button>
+      </div>
+    </div>
+
+    <div class="keys">
+      <button class="key light" data-char="x">X</button>
+      <button class="key light" data-char="^">^</button>
+      <button class="key light" data-char="sqrt(">√(</button>
+      <button class="key light" data-char="(">(</button>
+      <button class="key light" data-char=")">)</button>
+
+      <button class="key small" data-char="sin(">sin</button>
+      <button class="key small" data-char="cos(">cos</button>
+      <button class="key small" data-char="tan(">tan</button>
+      <button class="key small" data-char="ln(">ln</button>
+      <button class="key small" data-char="exp(">eˣ</button>
+
+      <button class="key small" data-char="pi">π</button>
+      <button class="key small" data-char="e">e</button>
+      <button class="key small" data-char="abs(">abs</button>
+      <button class="key light" id="btnAC">AC</button>
+      <button class="key light" id="btnDel">DEL</button>
+
+      <button class="key" data-char="7">7</button>
+      <button class="key" data-char="8">8</button>
+      <button class="key" data-char="9">9</button>
+      <button class="key" data-char="*">×</button>
+      <button class="key" data-char="/">÷</button>
+
+      <button class="key" data-char="4">4</button>
+      <button class="key" data-char="5">5</button>
+      <button class="key" data-char="6">6</button>
+      <button class="key" data-char="+">+</button>
+      <button class="key" data-char="-">−</button>
+
+      <button class="key" data-char="1">1</button>
+      <button class="key" data-char="2">2</button>
+      <button class="key" data-char="3">3</button>
+      <button class="key" data-char="(">(</button>
+      <button class="key" data-char=")">)</button>
+
+      <button class="key" data-char="0">0</button>
+      <button class="key" data-char=".">.</button>
+      <button class="key" data-char="-">(-)</button>
+      <button class="key light" data-char=",">,</button>
+      <button class="key accent" id="btnExe">EXE</button>
+    </div>
+  </div>
+</div>
+
+<div class="hint-below">
+  MENU: 1=RUN 2=GRAPH 3=TABLE · Im Y=-Editor: SEL an/aus, DRAW zeichnet · Im Graph: TRCE, ZOOM, V-WIN, G-SLV (Root/Max/Min/Y-Icpt/Isct/Y-Cal/X-Cal)<br>
+  Tippen geht auch per Tastatur · <kbd>Enter</kbd>=EXE · <kbd>⌫</kbd>=DEL · <kbd>Esc</kbd>=EXIT · Pfeiltasten = Cursor/Navigation
+</div>
+
+<script>
+(function(){
+'use strict';
+
+// =================================================================
+// MATHE-ENGINE (nur Parser + Auswertung — keine automatische
+// Ableitung/Lösung, das macht der Rechner am echten Geraet auch nicht)
+// =================================================================
+
+function tokenize(input){
+  const s = input.replace(/\s+/g,'');
+  const tokens = [];
+  let i=0;
+  const isDigit = c=>c>='0'&&c<='9';
+  const isAlpha = c=>/[a-zA-Z]/.test(c);
+  while(i<s.length){
+    const c = s[i];
+    if(isDigit(c) || (c==='.' && isDigit(s[i+1]))){
+      let j=i+1;
+      while(j<s.length && (isDigit(s[j])||s[j]==='.')) j++;
+      tokens.push({type:'NUM', value:parseFloat(s.slice(i,j))});
+      i=j; continue;
+    }
+    if(isAlpha(c)){
+      let j=i+1;
+      while(j<s.length && isAlpha(s[j])) j++;
+      tokens.push({type:'IDENT', value:s.slice(i,j)});
+      i=j; continue;
+    }
+    if('+-*/^(),'.includes(c)){
+      tokens.push({type:c});
+      i++; continue;
+    }
+    throw new Error('Unerwartetes Zeichen: "'+c+'"');
+  }
+  return tokens;
+}
+
+const FUNCS = new Set(['sin','cos','tan','exp','ln','log','sqrt','abs']);
+const CONSTS = new Set(['pi','e']);
+
+function preprocess(input){
+  return input
+    .replace(/²/g,'^2').replace(/³/g,'^3')
+    .replace(/(\d),(\d)/g,'$1.$2')
+    .replace(/π/g,'pi');
+}
+
+function parse(input){
+  const tokens = tokenize(preprocess(input));
+  let pos = 0;
+  function peek(){ return tokens[pos]; }
+  function next(){ return tokens[pos++]; }
+  function expect(type){
+    const t = next();
+    if(!t || t.type!==type) throw new Error('Erwartet "'+type+'"');
+    return t;
+  }
+  function startsFactor(t){
+    if(!t) return false;
+    return t.type==='NUM' || t.type==='IDENT' || t.type==='(';
+  }
+  function parsePrimary(){
+    const t = peek();
+    if(!t) throw new Error('Ausdruck unvollstaendig');
+    if(t.type==='NUM'){ next(); return {type:'num', value:t.value}; }
+    if(t.type==='('){ next(); const e = parseExpr(); expect(')'); return e; }
+    if(t.type==='IDENT'){
+      const name = t.value.toLowerCase();
+      next();
+      if(FUNCS.has(name)){ expect('('); const arg = parseExpr(); expect(')'); return {type:'func', name, arg}; }
+      if(CONSTS.has(name)) return {type:'const', name};
+      if(name==='x') return {type:'var'};
+      throw new Error('Unbekannt: "'+name+'"');
+    }
+    if(t.type==='-'){ next(); return {type:'neg', a: parseUnary()}; }
+    if(t.type==='+'){ next(); return parseUnary(); }
+    throw new Error('Unerwartetes Zeichen');
+  }
+  function parsePower(){
+    const base = parsePrimary();
+    if(peek() && peek().type==='^'){ next(); const exp = parseUnary(); return {type:'pow', a: base, b: exp}; }
+    return base;
+  }
+  function parseUnary(){
+    if(peek() && (peek().type==='-'||peek().type==='+')){
+      const t = next(); const a = parseUnary();
+      return t.type==='-' ? {type:'neg', a} : a;
+    }
+    return parsePower();
+  }
+  function parseTerm(){
+    let node = parseUnary();
+    for(;;){
+      const t = peek();
+      if(t && t.type==='*'){ next(); node = {type:'mul', a:node, b:parseUnary()}; continue; }
+      if(t && t.type==='/'){ next(); node = {type:'div', a:node, b:parseUnary()}; continue; }
+      if(startsFactor(t)){ node = {type:'mul', a:node, b:parseUnary()}; continue; }
+      break;
+    }
+    return node;
+  }
+  function parseExpr(){
+    let node = parseTerm();
+    for(;;){
+      const t = peek();
+      if(t && t.type==='+'){ next(); node = {type:'add', a:node, b:parseTerm()}; continue; }
+      if(t && t.type==='-'){ next(); node = {type:'sub', a:node, b:parseTerm()}; continue; }
+      break;
+    }
+    return node;
+  }
+  const result = parseExpr();
+  if(pos < tokens.length) throw new Error('Zeichen am Ende uebrig');
+  return result;
+}
+
+function evaluate(node, x){
+  switch(node.type){
+    case 'num': return node.value;
+    case 'var': return x;
+    case 'const': return node.name==='pi'?Math.PI:Math.E;
+    case 'add': return evaluate(node.a,x)+evaluate(node.b,x);
+    case 'sub': return evaluate(node.a,x)-evaluate(node.b,x);
+    case 'mul': return evaluate(node.a,x)*evaluate(node.b,x);
+    case 'div': return evaluate(node.a,x)/evaluate(node.b,x);
+    case 'pow': return Math.pow(evaluate(node.a,x), evaluate(node.b,x));
+    case 'neg': return -evaluate(node.a,x);
+    case 'func': {
+      const v = evaluate(node.arg,x);
+      switch(node.name){
+        case 'sin': return Math.sin(v);
+        case 'cos': return Math.cos(v);
+        case 'tan': return Math.tan(v);
+        case 'exp': return Math.exp(v);
+        case 'ln': case 'log': return Math.log(v);
+        case 'sqrt': return Math.sqrt(v);
+        case 'abs': return Math.abs(v);
+      }
+    }
+  }
+  throw new Error('Unbekannter Knoten '+node.type);
+}
+
+function splitTopLevelComma(s){
+  let depth=0;
+  for(let i=0;i<s.length;i++){
+    const c=s[i];
+    if(c==='(') depth++;
+    else if(c===')') depth--;
+    else if(c===',' && depth===0) return [s.slice(0,i), s.slice(i+1)];
+  }
+  return [s];
+}
+
+function numericScanRoots(f, xMin, xMax, steps){
+  steps = steps || 3000;
+  const found = []; let prevX = xMin, prevY = f(prevX);
+  for(let i=1;i<=steps;i++){
+    const x = xMin + (xMax-xMin)*i/steps; const y = f(x);
+    if(isFinite(prevY) && isFinite(y)){
+      if(Math.abs(prevY) < 1e-12){ found.push(prevX); }
+      else if(prevY*y < 0){
+        let a=prevX,b=x,fa=prevY,fb=y;
+        for(let k=0;k<80;k++){
+          const m=(a+b)/2, fm=f(m);
+          if(Math.abs(fm)<1e-12 || (b-a)<1e-12){ a=b=m; break; }
+          if((fa<0)===(fm<0)){a=m;fa=fm;} else {b=m;fb=fm;}
+        }
+        found.push((a+b)/2);
+      }
+    }
+    prevX=x; prevY=y;
+  }
+  found.sort((a,b)=>a-b);
+  const dedup=[]; for(const r of found){ if(dedup.length===0 || Math.abs(r-dedup[dedup.length-1])>1e-6) dedup.push(r); }
+  return dedup;
+}
+
+function refineExtremum(f,a,b,kind){
+  for(let k=0;k<60;k++){
+    const m1=a+(b-a)/3, m2=b-(b-a)/3;
+    const f1=f(m1), f2=f(m2);
+    if(!isFinite(f1)||!isFinite(f2)) break;
+    if(kind==='max'){ if(f1<f2) a=m1; else b=m2; }
+    else { if(f1>f2) a=m1; else b=m2; }
+  }
+  const x=(a+b)/2; return {x, y:f(x)};
+}
+function findLocalExtrema(f,xMin,xMax,kind){
+  const N=800; const xs=[]; const ys=[];
+  for(let i=0;i<=N;i++){ const x=xMin+(xMax-xMin)*i/N; xs.push(x); ys.push(f(x)); }
+  const raw=[];
+  for(let i=1;i<N;i++){
+    if(!isFinite(ys[i-1])||!isFinite(ys[i])||!isFinite(ys[i+1])) continue;
+    const isMax = ys[i]>=ys[i-1] && ys[i]>=ys[i+1] && (ys[i]>ys[i-1]||ys[i]>ys[i+1]);
+    const isMin = ys[i]<=ys[i-1] && ys[i]<=ys[i+1] && (ys[i]<ys[i-1]||ys[i]<ys[i+1]);
+    if((kind==='max'&&isMax)||(kind==='min'&&isMin)){
+      raw.push(refineExtremum(f, xs[i-1], xs[i+1], kind));
+    }
+  }
+  const dedup=[]; const eps=(xMax-xMin)*0.01;
+  for(const p of raw){ if(dedup.length===0 || Math.abs(p.x-dedup[dedup.length-1].x)>eps) dedup.push(p); }
+  return dedup;
+}
+
+// =================================================================
+// UI-HELFER
+// =================================================================
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function fmtDisplay(v){
+  if(v===Infinity) return '+inf';
+  if(v===-Infinity) return '-inf';
+  if(v===undefined || v===null || Number.isNaN(v)) return '--';
+  let r = Math.round(v*10000)/10000;
+  if(Object.is(r,-0)) r=0;
+  return String(r);
+}
+function pad(s,n){ s=String(s); while(s.length<n) s+=' '; return s; }
+
+// =================================================================
+// ZUSTAND
+// =================================================================
+
+const VWIN_FIELDS = ['xmin','xmax','xscale','ymin','ymax','yscale'];
+const GSOLV_LABEL = {root:'Root',max:'Max',min:'Min',yicpt:'Y-Icpt',isct:'Isct',ycal:'Y-Cal',xcal:'X-Cal'};
+
+const state = {
+  app:'menu', // 'menu' | 'run' | 'yedit' | 'graph' | 'table'
+
+  runInput:'', runCursor:0, runError:null, runHistory:[], runHistoryPos:undefined,
+
+  yslots:[ {expr:'x^3-3x^2-4x+12', active:true}, {expr:'', active:false}, {expr:'', active:false} ],
+  yeditIndex:0, yeditCursor: 'x^3-3x^2-4x+12'.length,
+
+  vwin:{xmin:-10,xmax:10,xscale:1,ymin:-15,ymax:15,yscale:5},
+  selectedSlot:0,
+  graphTool:'none', // none|trace|vwin|zoom-menu|gsolv-menu|gsolv-menu2|gsolv-result|prompt
+  vwinField:0, vwinBuffer:'',
+  traceX:0,
+  gsolvKind:null, gsolvResults:[], gsolvIndex:0, gsolvSlot:0, gsolvMessage:null,
+  promptBuffer:'', promptSlot:0,
+
+  tbl:{start:-5,end:5,step:1}, tblField:0, tblBuffer:'',
+  tableSetupOpen:false, tableRows:null, tableError:null, tableScroll:0
+};
+
+function activeIndices(){
+  return state.yslots.map((s,i)=>i).filter(i=>state.yslots[i].active && state.yslots[i].expr.trim()!=='');
+}
+function fnAt(i){
+  try{ const ast = parse(state.yslots[i].expr); return x=>{ try{ return evaluate(ast,x); }catch(e){ return NaN; } }; }
+  catch(e){ return null; }
+}
+
+// =================================================================
+// AKTIONEN
+// =================================================================
+
+function runEvaluate(){
+  const raw = state.runInput.trim();
+  if(!raw) return;
+  try{
+    let outVal;
+    const m = raw.match(/^d\/dx\((.*)\)$/i);
+    if(m){
+      const parts = splitTopLevelComma(m[1]);
+      if(parts.length!==2) throw new Error('d/dx( Term , x0 )');
+      const fAst = parse(parts[0]);
+      const x0 = evaluate(parse(parts[1]), 0);
+      const h = 1e-5*Math.max(1,Math.abs(x0));
+      outVal = (evaluate(fAst,x0+h)-evaluate(fAst,x0-h))/(2*h);
+    } else {
+      outVal = evaluate(parse(raw), 0);
+    }
+    state.runHistory.push({input: raw, output: fmtDisplay(outVal)});
+    if(state.runHistory.length>40) state.runHistory.shift();
+    state.runInput=''; state.runCursor=0; state.runError=null; state.runHistoryPos=undefined;
+  }catch(e){
+    state.runError = e.message||String(e);
+  }
+}
+
+function applyZoom(factor){
+  const {xmin,xmax,ymin,ymax}=state.vwin;
+  const cx=(xmin+xmax)/2, cy=(ymin+ymax)/2;
+  const hw=(xmax-xmin)/2*factor, hh=(ymax-ymin)/2*factor;
+  state.vwin.xmin=cx-hw; state.vwin.xmax=cx+hw;
+  state.vwin.ymin=cy-hh; state.vwin.ymax=cy+hh;
+}
+function commitVWinField(){
+  if(state.vwinBuffer.trim()!==''){
+    const v=parseFloat(state.vwinBuffer);
+    if(isFinite(v)) state.vwin[VWIN_FIELDS[state.vwinField]]=v;
+  }
+  state.vwinBuffer='';
+}
+function commitTableField(){
+  const FIELDS=['start','end','step'];
+  if(state.tblBuffer.trim()!==''){
+    const v=parseFloat(state.tblBuffer);
+    if(isFinite(v)) state.tbl[FIELDS[state.tblField]]=v;
+  }
+  state.tblBuffer='';
+}
+function generateTable(){
+  const idxs=activeIndices();
+  const fns = idxs.map(i=>({label:'Y'+(i+1), f:fnAt(i)}));
+  const {start,end,step}=state.tbl;
+  if(!(step>0) || (end-start)/step > 500 || end<=start){ state.tableRows=null; state.tableError='Ungueltiger Bereich'; return; }
+  if(fns.length===0){ state.tableRows=null; state.tableError='Keine aktive Funktion (Y=)'; return; }
+  const rows=[];
+  for(let x=start; x<=end+1e-9; x+=step){
+    rows.push({x, ys: fns.map(fn=> fn.f? fn.f(x): NaN)});
+  }
+  state.tableRows={fns, rows};
+  state.tableScroll=0; state.tableError=null;
+}
+
+function finishGsolv(kind, points, slotIdx){
+  state.gsolvKind=kind; state.gsolvResults=points; state.gsolvIndex=0; state.gsolvSlot=slotIdx;
+  state.graphTool = points.length? 'gsolv-result' : 'none';
+  state.gsolvMessage = points.length? null : 'Nicht gefunden';
+}
+function runGsolv(kind){
+  const idxs = activeIndices();
+  if(idxs.length===0){ state.graphTool='none'; state.gsolvMessage='Keine aktive Funktion'; return; }
+  const slotIdx = idxs[Math.min(state.selectedSlot, idxs.length-1)];
+  const f = fnAt(slotIdx);
+  if(!f){ state.gsolvMessage='Fehler in Y'+(slotIdx+1); state.graphTool='none'; return; }
+  const {xmin,xmax} = state.vwin;
+  if(kind==='root'){
+    finishGsolv(kind, numericScanRoots(f,xmin,xmax).map(x=>({x,y:0})), slotIdx);
+  } else if(kind==='max'||kind==='min'){
+    finishGsolv(kind, findLocalExtrema(f,xmin,xmax,kind), slotIdx);
+  } else if(kind==='yicpt'){
+    if(0<xmin || 0>xmax){ finishGsolv(kind, [], slotIdx); return; }
+    finishGsolv(kind, [{x:0,y:f(0)}], slotIdx);
+  } else if(kind==='isct'){
+    if(idxs.length<2){ state.gsolvMessage='2. aktive Funktion noetig'; state.graphTool='none'; return; }
+    const otherIdx = idxs[(idxs.indexOf(slotIdx)+1)%idxs.length];
+    const g = fnAt(otherIdx);
+    if(!g){ state.gsolvMessage='Fehler in Y'+(otherIdx+1); state.graphTool='none'; return; }
+    const diff = x=>f(x)-g(x);
+    finishGsolv(kind, numericScanRoots(diff,xmin,xmax).map(x=>({x,y:f(x)})), slotIdx);
+  } else if(kind==='ycal'){
+    state.graphTool='prompt'; state.gsolvKind='ycal'; state.promptBuffer=''; state.promptSlot=slotIdx;
+  } else if(kind==='xcal'){
+    state.graphTool='prompt'; state.gsolvKind='xcal'; state.promptBuffer=''; state.promptSlot=slotIdx;
+  }
+}
+function confirmPrompt(){
+  const v = parseFloat(state.promptBuffer);
+  if(!isFinite(v)){ state.graphTool='none'; return; }
+  const f = fnAt(state.promptSlot);
+  if(!f){ state.graphTool='none'; return; }
+  if(state.gsolvKind==='ycal'){
+    finishGsolv('ycal', [{x:v,y:f(v)}], state.promptSlot);
+  } else {
+    const {xmin,xmax}=state.vwin;
+    const diff=x=>f(x)-v;
+    finishGsolv('xcal', numericScanRoots(diff,xmin,xmax).map(x=>({x,y:v})), state.promptSlot);
+  }
+}
+
+// =================================================================
+// EINGABE-DISPATCH
+// =================================================================
+
+function appendFiltered(cur, str){ return /^[0-9.\-]$/.test(str) ? cur+str : cur; }
+
+function pressChar(str){
+  if(state.app==='menu'){
+    if(str==='1'){ state.app='run'; }
+    else if(str==='2'){ state.app='yedit'; }
+    else if(str==='3'){ state.app='table'; }
+  } else if(state.app==='run'){
+    state.runInput = state.runInput.slice(0,state.runCursor)+str+state.runInput.slice(state.runCursor);
+    state.runCursor += str.length;
+  } else if(state.app==='yedit'){
+    const s = state.yslots[state.yeditIndex];
+    s.expr = s.expr.slice(0,state.yeditCursor)+str+s.expr.slice(state.yeditCursor);
+    state.yeditCursor += str.length;
+  } else if(state.app==='graph'){
+    if(state.graphTool==='vwin') state.vwinBuffer = appendFiltered(state.vwinBuffer, str);
+    else if(state.graphTool==='prompt') state.promptBuffer = appendFiltered(state.promptBuffer, str);
+  } else if(state.app==='table' && state.tableSetupOpen){
+    state.tblBuffer = appendFiltered(state.tblBuffer, str);
+  }
+  render();
+}
+
+function pressDel(){
+  if(state.app==='run'){
+    if(state.runCursor>0){ state.runInput=state.runInput.slice(0,state.runCursor-1)+state.runInput.slice(state.runCursor); state.runCursor--; }
+  } else if(state.app==='yedit'){
+    const s=state.yslots[state.yeditIndex];
+    if(state.yeditCursor>0){ s.expr=s.expr.slice(0,state.yeditCursor-1)+s.expr.slice(state.yeditCursor); state.yeditCursor--; }
+  } else if(state.app==='graph'){
+    if(state.graphTool==='vwin') state.vwinBuffer=state.vwinBuffer.slice(0,-1);
+    else if(state.graphTool==='prompt') state.promptBuffer=state.promptBuffer.slice(0,-1);
+  } else if(state.app==='table' && state.tableSetupOpen){
+    state.tblBuffer=state.tblBuffer.slice(0,-1);
+  }
+  render();
+}
+
+function pressAC(){
+  if(state.app==='run'){ state.runInput=''; state.runCursor=0; state.runError=null; }
+  else if(state.app==='yedit'){ state.yslots[state.yeditIndex].expr=''; state.yeditCursor=0; }
+  else if(state.app==='graph'){
+    if(state.graphTool==='vwin') state.vwinBuffer='';
+    else if(state.graphTool==='prompt') state.promptBuffer='';
+  } else if(state.app==='table' && state.tableSetupOpen){ state.tblBuffer=''; }
+  render();
+}
+
+function pressExe(){
+  if(state.app==='run'){ runEvaluate(); }
+  else if(state.app==='yedit'){ state.yeditIndex=(state.yeditIndex+1)%3; state.yeditCursor=state.yslots[state.yeditIndex].expr.length; }
+  else if(state.app==='graph'){
+    if(state.graphTool==='vwin'){ commitVWinField(); state.graphTool='none'; }
+    else if(state.graphTool==='prompt'){ confirmPrompt(); }
+  } else if(state.app==='table'){
+    if(state.tableSetupOpen){
+      commitTableField();
+      if(state.tblField<2){ state.tblField++; state.tblBuffer=''; }
+      else { state.tableSetupOpen=false; generateTable(); }
+    }
+  } else if(state.app==='menu'){ state.app='run'; }
+  render();
+}
+
+function pressExit(){
+  if(state.app==='graph'){
+    if(state.graphTool!=='none') state.graphTool='none';
+    else state.app='menu';
+  } else if(state.app==='table'){
+    if(state.tableSetupOpen) state.tableSetupOpen=false;
+    else state.app='menu';
+  } else {
+    state.app='menu';
+  }
+  render();
+}
+
+function pressMenu(){ state.app='menu'; state.graphTool='none'; state.tableSetupOpen=false; render(); }
+
+function pressArrow(dir){
+  if(state.app==='run'){
+    if(dir==='left') state.runCursor=Math.max(0,state.runCursor-1);
+    if(dir==='right') state.runCursor=Math.min(state.runInput.length,state.runCursor+1);
+    if(dir==='up' && state.runHistory.length){
+      state.runHistoryPos = (state.runHistoryPos===undefined? state.runHistory.length : state.runHistoryPos) - 1;
+      if(state.runHistoryPos<0) state.runHistoryPos=0;
+      state.runInput = state.runHistory[state.runHistoryPos].input; state.runCursor=state.runInput.length;
+    }
+    if(dir==='down' && state.runHistoryPos!==undefined){
+      state.runHistoryPos++;
+      if(state.runHistoryPos>=state.runHistory.length){ state.runInput=''; state.runHistoryPos=undefined; }
+      else { state.runInput = state.runHistory[state.runHistoryPos].input; }
+      state.runCursor=state.runInput.length;
+    }
+  } else if(state.app==='yedit'){
+    const s = state.yslots[state.yeditIndex];
+    if(dir==='left') state.yeditCursor=Math.max(0,state.yeditCursor-1);
+    if(dir==='right') state.yeditCursor=Math.min(s.expr.length,state.yeditCursor+1);
+    if(dir==='up'){ state.yeditIndex=(state.yeditIndex+2)%3; state.yeditCursor=state.yslots[state.yeditIndex].expr.length; }
+    if(dir==='down'){ state.yeditIndex=(state.yeditIndex+1)%3; state.yeditCursor=state.yslots[state.yeditIndex].expr.length; }
+  } else if(state.app==='graph'){
+    const idxs = activeIndices();
+    if(state.graphTool==='trace'){
+      const {xmin,xmax}=state.vwin; const step=(xmax-xmin)/120;
+      if(dir==='left') state.traceX=Math.max(xmin,state.traceX-step);
+      if(dir==='right') state.traceX=Math.min(xmax,state.traceX+step);
+      if(idxs.length>1){
+        if(dir==='up') state.selectedSlot=(state.selectedSlot+idxs.length-1)%idxs.length;
+        if(dir==='down') state.selectedSlot=(state.selectedSlot+1)%idxs.length;
+      }
+    } else if(state.graphTool==='vwin'){
+      if(dir==='up'){ commitVWinField(); state.vwinField=(state.vwinField+5)%6; }
+      if(dir==='down'){ commitVWinField(); state.vwinField=(state.vwinField+1)%6; }
+    } else if(state.graphTool==='gsolv-result'){
+      if(dir==='left') state.gsolvIndex=Math.max(0,state.gsolvIndex-1);
+      if(dir==='right') state.gsolvIndex=Math.min(state.gsolvResults.length-1,state.gsolvIndex+1);
+    } else if(state.graphTool==='none' && idxs.length>1){
+      if(dir==='up') state.selectedSlot=(state.selectedSlot+idxs.length-1)%idxs.length;
+      if(dir==='down') state.selectedSlot=(state.selectedSlot+1)%idxs.length;
+    }
+  } else if(state.app==='table'){
+    if(state.tableSetupOpen){
+      if(dir==='up'){ commitTableField(); state.tblField=(state.tblField+2)%3; }
+      if(dir==='down'){ commitTableField(); state.tblField=(state.tblField+1)%3; }
+    } else if(state.tableRows){
+      if(dir==='up') state.tableScroll=Math.max(0,state.tableScroll-1);
+      if(dir==='down') state.tableScroll++;
+    }
+  }
+  render();
+}
+
+function softkeyLabels(){
+  if(state.app==='menu') return ['RUN','GRAPH','TABLE','','',''];
+  if(state.app==='run') return ['d/dx','','','','','CLR'];
+  if(state.app==='yedit') return ['SEL','','','','','DRAW'];
+  if(state.app==='table') return state.tableSetupOpen? ['','','','','',''] : ['SET','','','','','MENU'];
+  if(state.app==='graph'){
+    switch(state.graphTool){
+      case 'none': return ['TRCE','ZOOM','V-WIN','','G-SLV','MENU'];
+      case 'trace': return ['','','','','','EXIT'];
+      case 'vwin': return ['','','','','','OK'];
+      case 'zoom-menu': return ['IN','OUT','','','',''];
+      case 'gsolv-menu': return ['ROOT','MAX','MIN','Y-ICPT','ISCT','MORE'];
+      case 'gsolv-menu2': return ['Y-CAL','X-CAL','','','','BACK'];
+      case 'gsolv-result': return ['','','','','','EXIT'];
+      case 'prompt': return ['','','','','','EXIT'];
+    }
+  }
+  return ['','','','','',''];
+}
+function softkeyPress(i){
+  const label = softkeyLabels()[i];
+  if(!label) return;
+  if(state.app==='menu'){
+    if(label==='RUN') state.app='run';
+    if(label==='GRAPH') state.app='yedit';
+    if(label==='TABLE') state.app='table';
+  } else if(state.app==='run'){
+    if(label==='d/dx'){ pressChar('d/dx('); }
+    if(label==='CLR'){ state.runInput=''; state.runCursor=0; state.runError=null; }
+  } else if(state.app==='yedit'){
+    if(label==='SEL') state.yslots[state.yeditIndex].active = !state.yslots[state.yeditIndex].active;
+    if(label==='DRAW'){ state.app='graph'; state.graphTool='none'; state.selectedSlot=0; state.gsolvMessage=null; }
+  } else if(state.app==='table'){
+    if(label==='SET'){ state.tableSetupOpen=true; state.tblField=0; state.tblBuffer=''; }
+    if(label==='MENU') state.app='menu';
+  } else if(state.app==='graph'){
+    if(label==='TRCE'){ state.graphTool='trace'; state.traceX=(state.vwin.xmin+state.vwin.xmax)/2; }
+    if(label==='ZOOM'){ state.graphTool='zoom-menu'; }
+    if(label==='IN'){ applyZoom(0.5); state.graphTool='none'; }
+    if(label==='OUT'){ applyZoom(2); state.graphTool='none'; }
+    if(label==='V-WIN'){ state.graphTool='vwin'; state.vwinField=0; state.vwinBuffer=''; }
+    if(label==='OK'){ commitVWinField(); state.graphTool='none'; }
+    if(label==='G-SLV'){ state.graphTool='gsolv-menu'; state.gsolvMessage=null; }
+    if(label==='MORE'){ state.graphTool='gsolv-menu2'; }
+    if(label==='BACK'){ state.graphTool='gsolv-menu'; }
+    if(label==='ROOT') runGsolv('root');
+    if(label==='MAX') runGsolv('max');
+    if(label==='MIN') runGsolv('min');
+    if(label==='Y-ICPT') runGsolv('yicpt');
+    if(label==='ISCT') runGsolv('isct');
+    if(label==='Y-CAL') runGsolv('ycal');
+    if(label==='X-CAL') runGsolv('xcal');
+    if(label==='MENU'){ state.app='menu'; }
+    if(label==='EXIT'){ state.graphTool='none'; state.gsolvMessage=null; }
+  }
+  render();
+}
+
+// =================================================================
+// RENDERING
+// =================================================================
+
+function renderSoftkeys(){
+  const wrap = document.getElementById('softkeys');
+  const labels = softkeyLabels();
+  wrap.innerHTML = labels.map((label,i)=>`<div class="softkey${label?'':' empty'}" data-i="${i}">${label}</div>`).join('');
+  wrap.querySelectorAll('.softkey').forEach(el=>{
+    el.addEventListener('click', ()=>softkeyPress(+el.dataset.i));
+  });
+}
+
+function renderMenuScreen(){
+  return `<div class="lcd-menu">
+    <div class="lcd-title">GRAPH-TRAINER</div>
+    <div class="lcd-sub">1 / F1  RUN&middot;MAT (rechnen)<br>2 / F2  GRAPH (Y= &amp; zeichnen)<br>3 / F3  TABLE (Wertetabelle)</div>
+  </div>`;
+}
+
+function renderRun(){
+  const hist = state.runHistory.slice(-5).flatMap(h=>[
+    `<div class="lcd-line dim">${escapeHtml(h.input)}</div>`,
+    `<div class="lcd-line dim">Ans=${escapeHtml(h.output)}</div>`
+  ]).join('');
+  const before = escapeHtml(state.runInput.slice(0,state.runCursor));
+  const after = escapeHtml(state.runInput.slice(state.runCursor));
+  let html = hist + `<div class="lcd-inputline">${before}<span class="caret"></span>${after}</div>`;
+  if(state.runError) html += `<div class="lcd-error">${escapeHtml(state.runError)}</div>`;
+  return html;
+}
+
+function renderYedit(){
+  let html='';
+  state.yslots.forEach((s,i)=>{
+    const marker = s.active? '&#9632;' : '&#9633;';
+    if(i===state.yeditIndex){
+      const before=escapeHtml(s.expr.slice(0,state.yeditCursor));
+      const after=escapeHtml(s.expr.slice(state.yeditCursor));
+      html += `<div class="lcd-line">${marker} Y${i+1}=${before}<span class="caret"></span>${after}</div>`;
+    } else {
+      html += `<div class="lcd-line dim">${marker} Y${i+1}=${escapeHtml(s.expr)}</div>`;
+    }
+  });
+  html += `<div class="lcd-hint">SEL an/aus &middot; hoch/runter=Y wechseln<br>links/rechts=Cursor &middot; DRAW=Graph</div>`;
+  return html;
+}
+
+function renderVWinEditor(){
+  const labels=['Xmin','Xmax','Xscale','Ymin','Ymax','Yscale'];
+  let html='';
+  labels.forEach((lab,i)=>{
+    const focus = i===state.vwinField;
+    const val = focus? state.vwinBuffer : String(state.vwin[VWIN_FIELDS[i]]);
+    html += `<div class="lcd-line${focus?'':' dim'}">${lab}=${escapeHtml(val)}${focus?'<span class="caret"></span>':''}</div>`;
+  });
+  html += `<div class="lcd-hint">Zahl eingeben &middot; hoch/runter=Feld<br>OK (F6) bestaetigt</div>`;
+  return html;
+}
+
+function renderGraphScreen(){
+  if(state.graphTool==='vwin') return renderVWinEditor();
+  let overlay = '';
+  if(state.graphTool==='trace'){
+    const idxs = activeIndices();
+    const slotIdx = idxs[Math.min(state.selectedSlot, idxs.length-1)];
+    const f = slotIdx!==undefined ? fnAt(slotIdx) : null;
+    const y = f? f(state.traceX) : NaN;
+    overlay = `<div class="lcd-graph-overlay">Y${slotIdx!==undefined?slotIdx+1:'-'}  X=${fmtDisplay(state.traceX)}  Y=${isFinite(y)?fmtDisplay(y):'--'}</div>`;
+  } else if(state.graphTool==='gsolv-result'){
+    const p = state.gsolvResults[state.gsolvIndex];
+    overlay = `<div class="lcd-graph-overlay">${GSOLV_LABEL[state.gsolvKind]} (${state.gsolvIndex+1}/${state.gsolvResults.length})  X=${fmtDisplay(p.x)}  Y=${fmtDisplay(p.y)}</div>`;
+  } else if(state.graphTool==='prompt'){
+    overlay = `<div class="lcd-graph-overlay">${state.gsolvKind==='ycal'?'X':'Y'} ? ${escapeHtml(state.promptBuffer)}<span class="caret"></span></div>`;
+  } else if(state.graphTool==='none' && state.gsolvMessage){
+    overlay = `<div class="lcd-graph-overlay">${escapeHtml(state.gsolvMessage)}</div>`;
+  } else if(state.graphTool==='none'){
+    const idxs = activeIndices();
+    if(idxs.length>1){
+      const slotIdx = idxs[Math.min(state.selectedSlot, idxs.length-1)];
+      overlay = `<div class="lcd-graph-overlay">gewaehlt: Y${slotIdx+1}  (hoch/runter=wechseln)</div>`;
+    }
+  }
+  return `<canvas id="lcdCanvas"></canvas>${overlay}`;
+}
+
+function niceStep(range){
+  const rough = range/6;
+  const mag = Math.pow(10, Math.floor(Math.log10(Math.max(rough,1e-9))));
+  const norm = rough/mag;
+  let step;
+  if(norm<1.5) step=1; else if(norm<3) step=2; else if(norm<7) step=5; else step=10;
+  return step*mag;
+}
+
+function drawGraphScreen(canvas){
+  const dpr = window.devicePixelRatio || 1;
+  const cssW = canvas.clientWidth || 300, cssH = canvas.clientHeight || 158;
+  canvas.width = Math.round(cssW*dpr); canvas.height = Math.round(cssH*dpr);
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,cssW,cssH);
+  const ink = '#1f2a1a', inkDim = 'rgba(31,42,26,0.35)';
+  const {xmin,xmax,ymin,ymax} = state.vwin;
+  if(!(xmax>xmin) || !(ymax>ymin)) return;
+  const xscale = state.vwin.xscale>0? state.vwin.xscale : niceStep(xmax-xmin);
+  const yscale = state.vwin.yscale>0? state.vwin.yscale : niceStep(ymax-ymin);
+  const marginL=26, marginR=4, marginT=4, marginB=12;
+  const plotW=cssW-marginL-marginR, plotH=cssH-marginT-marginB;
+  function px(x){ return marginL+(x-xmin)/(xmax-xmin)*plotW; }
+  function py(y){ return marginT+(1-(y-ymin)/(ymax-ymin))*plotH; }
+
+  ctx.font='7px monospace'; ctx.strokeStyle=inkDim; ctx.lineWidth=1; ctx.fillStyle=ink;
+  for(let gx=Math.ceil(xmin/xscale)*xscale; gx<=xmax+1e-9; gx+=xscale){
+    const X=px(gx); ctx.beginPath();ctx.moveTo(X,marginT);ctx.lineTo(X,marginT+plotH);ctx.stroke();
+    if(Math.abs(gx)>xscale*1e-6) ctx.fillText(fmtDisplay(gx), X-6, marginT+plotH+10);
+  }
+  for(let gy=Math.ceil(ymin/yscale)*yscale; gy<=ymax+1e-9; gy+=yscale){
+    const Y=py(gy); ctx.beginPath();ctx.moveTo(marginL,Y);ctx.lineTo(marginL+plotW,Y);ctx.stroke();
+    if(Math.abs(gy)>yscale*1e-6) ctx.fillText(fmtDisplay(gy), 1, Y+2.5);
+  }
+  ctx.strokeStyle=ink; ctx.lineWidth=1.1;
+  if(xmin<=0&&xmax>=0){ const X=px(0); ctx.beginPath();ctx.moveTo(X,marginT);ctx.lineTo(X,marginT+plotH);ctx.stroke(); }
+  if(ymin<=0&&ymax>=0){ const Y=py(0); ctx.beginPath();ctx.moveTo(marginL,Y);ctx.lineTo(marginL+plotW,Y);ctx.stroke(); }
+
+  const idxs = activeIndices();
+  const dashPatterns=[[],[4,3],[1,2]];
+  idxs.forEach((slotIdx,k)=>{
+    const f = fnAt(slotIdx); if(!f) return;
+    ctx.setLineDash(dashPatterns[k%dashPatterns.length]);
+    ctx.strokeStyle=ink; ctx.lineWidth=1.3; ctx.beginPath();
+    let started=false;
+    const N=Math.max(80,Math.round(plotW));
+    for(let i=0;i<=N;i++){
+      const x=xmin+(xmax-xmin)*i/N; const y=f(x);
+      if(!isFinite(y) || y<ymin-(ymax-ymin) || y>ymax+(ymax-ymin)){ started=false; continue; }
+      const X=px(x), Y=py(y);
+      if(!started){ ctx.moveTo(X,Y); started=true; } else ctx.lineTo(X,Y);
+    }
+    ctx.stroke();
+  });
+  ctx.setLineDash([]);
+
+  if(state.graphTool==='trace'){
+    const slotIdx = idxs[Math.min(state.selectedSlot, idxs.length-1)];
+    const f = slotIdx!==undefined? fnAt(slotIdx) : null;
+    if(f){
+      const y=f(state.traceX);
+      if(isFinite(y) && y>=ymin && y<=ymax){
+        const X=px(state.traceX), Y=py(y);
+        ctx.strokeStyle=ink; ctx.lineWidth=1;
+        ctx.beginPath(); ctx.moveTo(X-4,Y); ctx.lineTo(X+4,Y); ctx.moveTo(X,Y-4); ctx.lineTo(X,Y+4); ctx.stroke();
+      }
+    }
+  }
+  if(state.graphTool==='gsolv-result' && state.gsolvResults.length){
+    const p = state.gsolvResults[state.gsolvIndex];
+    if(isFinite(p.x)&&isFinite(p.y)){
+      const X=px(p.x), Y=py(Math.max(ymin,Math.min(ymax,p.y)));
+      ctx.fillStyle=ink; ctx.beginPath(); ctx.arc(X,Y,3,0,Math.PI*2); ctx.fill();
+    }
+  }
+}
+
+function renderTable(){
+  if(state.tableSetupOpen){
+    const labels=['Start','Ende','Schritt'];
+    const vals=[state.tbl.start, state.tbl.end, state.tbl.step];
+    let html='';
+    labels.forEach((lab,i)=>{
+      const focus = i===state.tblField;
+      const val = focus? state.tblBuffer : String(vals[i]);
+      html += `<div class="lcd-line${focus?'':' dim'}">${lab}=${escapeHtml(val)}${focus?'<span class="caret"></span>':''}</div>`;
+    });
+    html += `<div class="lcd-hint">Zahl eingeben, EXE bestaetigt<br>jedes Feld nacheinander</div>`;
+    return html;
+  }
+  if(state.tableError) return `<div class="lcd-error">${escapeHtml(state.tableError)}</div>`;
+  if(!state.tableRows) return `<div class="lcd-hint">SET druecken (F1), um<br>Start/Ende/Schritt festzulegen<br>und die Tabelle zu erzeugen.</div>`;
+  const {fns, rows} = state.tableRows;
+  const header = pad('X',9)+fns.map(fn=>pad(fn.label,9)).join('');
+  const VISIBLE=9;
+  const maxScroll=Math.max(0, rows.length-VISIBLE);
+  state.tableScroll=Math.min(Math.max(0,state.tableScroll),maxScroll);
+  const shown = rows.slice(state.tableScroll, state.tableScroll+VISIBLE);
+  let html = `<div class="lcd-line">${escapeHtml(header)}</div>`;
+  shown.forEach(r=>{
+    const line = pad(fmtDisplay(r.x),9)+r.ys.map(y=>pad(isFinite(y)?fmtDisplay(y):'--',9)).join('');
+    html += `<div class="lcd-line">${escapeHtml(line)}</div>`;
+  });
+  const more = state.tableScroll<maxScroll, less = state.tableScroll>0;
+  html += `<div class="lcd-scrollhint">${less?'▲':''}${more?'▼':''}</div>`;
+  return html;
+}
+
+function render(){
+  renderSoftkeys();
+  const lcd = document.getElementById('lcd');
+  if(state.app==='menu') lcd.innerHTML = renderMenuScreen();
+  else if(state.app==='run') lcd.innerHTML = renderRun();
+  else if(state.app==='yedit') lcd.innerHTML = renderYedit();
+  else if(state.app==='table') lcd.innerHTML = renderTable();
+  else if(state.app==='graph'){
+    lcd.innerHTML = renderGraphScreen();
+    const canvas = document.getElementById('lcdCanvas');
+    if(canvas) requestAnimationFrame(()=>drawGraphScreen(canvas));
+  }
+}
+
+// =================================================================
+// WIRING
+// =================================================================
+
+function wireButtons(){
+  document.querySelectorAll('[data-char]').forEach(btn=>{
+    btn.addEventListener('click', ()=>pressChar(btn.dataset.char));
+  });
+  document.querySelectorAll('[data-dir]').forEach(btn=>{
+    btn.addEventListener('click', ()=>pressArrow(btn.dataset.dir));
+  });
+  document.getElementById('btnAC').addEventListener('click', pressAC);
+  document.getElementById('btnDel').addEventListener('click', pressDel);
+  document.getElementById('btnExe').addEventListener('click', pressExe);
+  document.getElementById('btnExit').addEventListener('click', pressExit);
+  document.getElementById('btnMenu').addEventListener('click', pressMenu);
+  document.getElementById('btnShift').addEventListener('click', ()=>flash('btnShift'));
+  document.getElementById('btnAlpha').addEventListener('click', ()=>flash('btnAlpha'));
+}
+function flash(id){
+  const el = document.getElementById(id);
+  el.style.background = 'var(--accent)';
+  setTimeout(()=>{ el.style.background=''; }, 140);
+}
+
+document.addEventListener('keydown', (e)=>{
+  if(e.key==='Enter'){ pressExe(); e.preventDefault(); return; }
+  if(e.key==='Backspace'){ pressDel(); e.preventDefault(); return; }
+  if(e.key==='Escape'){ pressExit(); e.preventDefault(); return; }
+  if(e.key==='ArrowLeft'){ pressArrow('left'); e.preventDefault(); return; }
+  if(e.key==='ArrowRight'){ pressArrow('right'); e.preventDefault(); return; }
+  if(e.key==='ArrowUp'){ pressArrow('up'); e.preventDefault(); return; }
+  if(e.key==='ArrowDown'){ pressArrow('down'); e.preventDefault(); return; }
+  if(e.key.length===1 && /[0-9a-zA-Z+\-*/^().,]/.test(e.key)){ pressChar(e.key); e.preventDefault(); return; }
+});
+
+function fitStage(){
+  const stage = document.getElementById('stage');
+  const designWidth = 380;
+  const available = Math.min(window.innerWidth-20, 620);
+  const scale = Math.min(1.6, available/designWidth);
+  stage.style.transform = 'scale('+scale+')';
+}
+window.addEventListener('resize', fitStage);
+
+// =================================================================
+// GERAETE-GATE: auf Tablet und Handy freigeben, am PC blockieren
+// =================================================================
+function detectDevice(){
+  const ua = navigator.userAgent || '';
+  const hasTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints||0) > 0;
+  const isIPadOS = navigator.platform === 'MacIntel' && (navigator.maxTouchPoints||0) > 1;
+  const isIOS = /iPad|iPhone|iPod/.test(ua) || isIPadOS;
+  const isAndroid = /Android/.test(ua);
+  if(isIOS || isAndroid) return 'mobile';
+  if(hasTouch) return 'mobile';
+  return 'desktop';
+}
+function applyDeviceGate(){
+  const gate = document.getElementById('deviceGate');
+  let bypassed = false;
+  try{ bypassed = localStorage.getItem('graphtrainer_bypass')==='1'; }catch(e){}
+  if(bypassed){ gate.classList.add('hidden'); return; }
+  gate.classList.toggle('hidden', detectDevice()==='mobile');
+}
+const gateBypassBtn = document.getElementById('gateBypass');
+if(gateBypassBtn) gateBypassBtn.addEventListener('click', ()=>{
+  try{ localStorage.setItem('graphtrainer_bypass','1'); }catch(e){}
+  document.getElementById('deviceGate').classList.add('hidden');
+});
+applyDeviceGate();
+
+wireButtons();
+fitStage();
+render();
+
+})();
+</script>
+</body>
+</html>
